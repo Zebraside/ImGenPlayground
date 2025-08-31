@@ -11,8 +11,8 @@ class NarutoDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         return {
-            "pixel_values": self.dataset[idx]["pixel_values"][0],
-            "encoder_hidden_states": self.dataset[idx]["encoder_hidden_states"][0],
+            "pixel_values": self.dataset[idx]["pixel_values"],
+            "encoder_hidden_states": self.dataset[idx]["encoder_hidden_states"],
         }
 
     def __len__(self):

@@ -18,7 +18,7 @@ class GenModel(torch.nn.Module):
         # self.variant = variant
         self.noise_scheduler = DDPMScheduler.from_pretrained(pretrained_model_name_or_path, subfolder="scheduler")
         self.unet = UNet2DConditionModel.from_pretrained(pretrained_model_name_or_path, subfolder="unet")
-        self.unet = torch.compile(self.unet)
+        # self.unet = torch.compile(self.unet)
         # self.tokenizer = CLIPTokenizer.from_pretrained(pretrained_model_name_or_path, subfolder="tokenizer")
         # self.text_encoder = CLIPTextModel.from_pretrained(pretrained_model_name_or_path, subfolder="text_encoder")
         # self.vae = AutoencoderKL.from_pretrained(pretrained_model_name_or_path, subfolder="vae")
@@ -33,7 +33,7 @@ class GenModel(torch.nn.Module):
             vae=unwrap_model(self.vae),
             text_encoder=(self.text_encoder),
             tokenizer=self.tokenizer,
-            unet=(self.unet),
+            unet=unwrap_model(self.unet),
             safety_checker=None,
             # revision=self.revision,
             # variant=self.variant,
@@ -45,15 +45,15 @@ class GenModel(torch.nn.Module):
             self.pipeline.enable_xformers_memory_efficient_attention()
 
     def cleanup_pipeline(self):
+        del self.pipeline
         del self.tokenizer
         del self.text_encoder
         del self.vae
-        del self.pipeline
 
-    def generate(self, prompts):
+    def generate(self, prompts, prompt_embeds=None):
         assert self.pipeline is not None
         # TODO: add height, width
-        return torch.tensor(self.pipeline(prompt=prompts)[0])
+        return self.pipeline(prompt=prompts, width=256, height=256, prompt_embeds=prompt_embeds)[0]
 
     def enbale_ema(self):
         # TODO: Implement

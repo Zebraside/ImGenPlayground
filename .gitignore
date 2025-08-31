@@ -1,4 +1,6 @@
 .venv/
-lightining_logs/
+ImGenPlayground/
+lightning_logs/
 **/**.pyc
 **/**.egg-info/**
+wandb/

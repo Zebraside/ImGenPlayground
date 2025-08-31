@@ -1,7 +1,11 @@
+# %%
 import torch
 from imgenplayground.gen_model import GenModel
+torch.set_float32_matmul_precision('high')
 
 # import polars as pl
+
+# df = pl.read_parquet('hf://datasets/lambdalabs/naruto-blip-captions/data/train-*-of-*.parquet').write_parquet("naruto.parquet")
 
 # df = pl.read_parquet('naruto.parquet')
 
@@ -27,8 +31,8 @@ from imgenplayground.gen_model import GenModel
 # import matplotlib.pyplot as plt
 # plt.plot(lrs)
 # plt.show()
-
+# %%
 model = GenModel("stabilityai/stable-diffusion-2")
-model.init_pipeline("mps", weight_dtype=torch.float16)
+model.init_pipeline("cuda", weight_dtype=torch.float16)
 
-model.generate("A man")
+model.generate("A man")[0].save("man.png")

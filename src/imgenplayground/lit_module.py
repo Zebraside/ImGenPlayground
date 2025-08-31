@@ -17,7 +17,7 @@ class LitImageGen(L.LightningModule):
                        allow_tf32=False,
                        scale_lr=False):
         super().__init__()
-        self.save_hyperparameters(ignore=["gen_mdoel"])
+        self.save_hyperparameters(ignore=["gen_model"])
         self.gen_model = gen_model
         # gen_model.vae.requires_grad_(False)
         # gen_model.text_encoder.requires_grad_(False)
@@ -41,6 +41,7 @@ class LitImageGen(L.LightningModule):
 
     def training_step(self, batch, batch_idx):
         latents = batch["pixel_values"] # image is preprocessed
+
         noise = torch.randn_like(latents)
         bsz = latents.shape[0]
         # TODO: noise offset?
@@ -56,14 +57,15 @@ class LitImageGen(L.LightningModule):
 
         model_pred = self.gen_model.unet(noisy_latents, timesteps, encoder_hidden_states, return_dict=False)[0]
         loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
-
+        self.log("train/mse_loss", loss.item())
         return loss
 
     def on_validation_epoch_start(self):
         self.gen_model.init_pipeline(self.device)
 
     def validation_step(self, batch, batch_idx):
-        pass
+        image = self.gen_model.generate(prompts=None, prompt_embeds=batch["encoder_hidden_states"])
+        self.logger.log_image("val/output", images=image)
 
     def on_validation_epoch_end(self):
         self.gen_model.cleanup_pipeline()
@@ -74,6 +76,7 @@ class LitImageGen(L.LightningModule):
                                      betas=self.hparams.betas,
                                      weight_decay=self.hparams.weight_decay,
                                      eps=self.hparams.adam_epsilon)
+        # TODO: get max steps from trainer
         schedulers = [
             torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.1, end_factor=1.0, total_iters=self.hparams.warmup_steps),
             torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.hparams.max_steps - self.hparams.warmup_steps, eta_min=self.hparams.min_lr)
