@@ -1,0 +1,4 @@
+.venv/
+lightining_logs/
+**/**.pyc
+**/**.egg-info/**
