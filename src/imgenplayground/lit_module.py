@@ -12,7 +12,6 @@ class LitImageGen(L.LightningModule):
                        weight_decay=1e-2,
                        adam_epsilon=1e-08,
                        warmup_steps=50,
-                       max_steps=3000,
                        enable_gradient_checkpointing=False,
                        allow_tf32=False,
                        scale_lr=False):
@@ -40,7 +39,7 @@ class LitImageGen(L.LightningModule):
             pass
 
     def training_step(self, batch, batch_idx):
-        latents = batch["pixel_values"] # image is preprocessed
+        latents = self.gen_model.vae.encode(batch["pixel_values"]).latent_dist.sample()  * self.gen_model.vae.config.scaling_factor
 
         noise = torch.randn_like(latents)
         bsz = latents.shape[0]
@@ -52,8 +51,12 @@ class LitImageGen(L.LightningModule):
 
         noisy_latents = self.gen_model.noise_scheduler.add_noise(latents, noise, timesteps)
 
-        encoder_hidden_states = batch["encoder_hidden_states"] # text is preprocessed
-        target = noise # TODO: other predicion type?
+        encoder_hidden_states = self.gen_model.text_encoder(batch["input_ids"], return_dict=False)[0]
+
+        if self.gen_model.noise_scheduler.config.prediction_type == "epsilon":
+                    target = noise
+        elif self.gen_model.noise_scheduler.config.prediction_type == "v_prediction":
+            target = self.gen_model.noise_scheduler.get_velocity(latents, noise, timesteps)
 
         model_pred = self.gen_model.unet(noisy_latents, timesteps, encoder_hidden_states, return_dict=False)[0]
         loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
@@ -64,14 +67,15 @@ class LitImageGen(L.LightningModule):
         self.gen_model.init_pipeline(self.device)
 
     def validation_step(self, batch, batch_idx):
-        image = self.gen_model.generate(prompts=None, prompt_embeds=batch["encoder_hidden_states"])
+        prompt_embeds = self.gen_model.text_encoder(batch["input_ids"], return_dict=False)[0]
+        image = self.gen_model.generate(prompts=None, prompt_embeds=prompt_embeds)
         self.logger.log_image("val/output", images=image)
 
     def on_validation_epoch_end(self):
         self.gen_model.cleanup_pipeline()
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(),
+        optimizer = torch.optim.AdamW(self.gen_model.get_params(),
                                      lr=self.hparams.lr,
                                      betas=self.hparams.betas,
                                      weight_decay=self.hparams.weight_decay,
@@ -79,7 +83,7 @@ class LitImageGen(L.LightningModule):
         # TODO: get max steps from trainer
         schedulers = [
             torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.1, end_factor=1.0, total_iters=self.hparams.warmup_steps),
-            torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.hparams.max_steps - self.hparams.warmup_steps, eta_min=self.hparams.min_lr)
+            torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.trainer.max_steps - self.hparams.warmup_steps, eta_min=self.hparams.min_lr)
         ]
         scheduler = torch.optim.lr_scheduler.SequentialLR(optimizer, schedulers=schedulers, milestones=[self.hparams.warmup_steps])
         return [optimizer], [{"scheduler": scheduler, "interval": "step"}]

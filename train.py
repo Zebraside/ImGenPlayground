@@ -14,21 +14,22 @@ from imgenplayground.datasets import NarutoDataset
 
 torch.set_float32_matmul_precision('high')
 
-dataset = NarutoDataset("naruto.pickle")
+dataset = NarutoDataset("naruto.parquet", "stabilityai/stable-diffusion-2")
 train, val = data.random_split(dataset, [len(dataset) - 1, 1])
 
 autoencoder = LitImageGen(
     GenModel("stabilityai/stable-diffusion-2"),
-    lr=1e-4
+    lr=1e-4,
+    warmup_steps=500
 )
 
 logger =  WandbLogger(project="ImGenPlayground")
 
 trainer = L.Trainer(
     precision="bf16-mixed",
-    max_steps=3000,
+    max_steps=5000,
     logger=logger
 )
 trainer.fit(autoencoder, 
-            data.DataLoader(train, num_workers=8, batch_size=12), 
+            data.DataLoader(train, num_workers=8, batch_size=12, shuffle=True), 
             data.DataLoader(val))

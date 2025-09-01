@@ -1,11 +1,7 @@
 # %%
-import torch
-from imgenplayground.gen_model import GenModel
-torch.set_float32_matmul_precision('high')
+import polars as pl
 
-# import polars as pl
-
-# df = pl.read_parquet('hf://datasets/lambdalabs/naruto-blip-captions/data/train-*-of-*.parquet').write_parquet("naruto.parquet")
+df = pl.read_parquet('hf://datasets/lambdalabs/naruto-blip-captions/data/train-*-of-*.parquet').write_parquet("naruto.parquet")
 
 # df = pl.read_parquet('naruto.parquet')
 
@@ -32,7 +28,19 @@ torch.set_float32_matmul_precision('high')
 # plt.plot(lrs)
 # plt.show()
 # %%
-model = GenModel("stabilityai/stable-diffusion-2")
-model.init_pipeline("cuda", weight_dtype=torch.float16)
+# import torch
+# from imgenplayground.gen_model import GenModel
+# torch.set_float32_matmul_precision('high')
 
-model.generate("A man")[0].save("man.png")
+# model = GenModel("stabilityai/stable-diffusion-2")
+# model.init_pipeline("cuda", weight_dtype=torch.float16)
+
+# model.generate("A man")[0].save("man.png")
+
+from diffusers import DDPMScheduler
+# %%
+noise_scheduler = DDPMScheduler.from_pretrained("stabilityai/stable-diffusion-2", subfolder="scheduler")
+# %%
+noise_scheduler.config
+
+# %%
