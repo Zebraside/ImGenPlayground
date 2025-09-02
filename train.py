@@ -20,7 +20,8 @@ train, val = data.random_split(dataset, [len(dataset) - 1, 1])
 autoencoder = LitImageGen(
     GenModel("stabilityai/stable-diffusion-2"),
     lr=1e-4,
-    warmup_steps=500
+    warmup_steps=500,
+    allow_tf32=True
 )
 
 logger =  WandbLogger(project="ImGenPlayground")

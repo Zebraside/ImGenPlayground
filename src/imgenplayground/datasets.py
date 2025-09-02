@@ -15,7 +15,8 @@ class NarutoDataset(torch.utils.data.Dataset):
 
         self.transforms = tr.Compose([
             tr.Resize(512),
-            tr.ToTensor()
+            tr.ToTensor(),
+            tr.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         ])
 
     def __getitem__(self, idx):

@@ -38,6 +38,8 @@ class LitImageGen(L.LightningModule):
             # )
             pass
 
+        self.guidance_dropout = 0.1
+
     def training_step(self, batch, batch_idx):
         latents = self.gen_model.vae.encode(batch["pixel_values"]).latent_dist.sample()  * self.gen_model.vae.config.scaling_factor
 
@@ -52,6 +54,10 @@ class LitImageGen(L.LightningModule):
         noisy_latents = self.gen_model.noise_scheduler.add_noise(latents, noise, timesteps)
 
         encoder_hidden_states = self.gen_model.text_encoder(batch["input_ids"], return_dict=False)[0]
+        if self.guidance_dropout > 0.0:
+            uncond = torch.zeros_like(encoder_hidden_states)
+            drop_mask = (torch.rand(bsz, device=encoder_hidden_states.device) < self.guidance_dropout).view(bsz, 1, 1)
+            encoder_hidden_states = torch.where(drop_mask, uncond, encoder_hidden_states)
 
         if self.gen_model.noise_scheduler.config.prediction_type == "epsilon":
                     target = noise

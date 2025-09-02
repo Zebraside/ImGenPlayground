@@ -26,8 +26,7 @@ class GenModel(torch.nn.Module):
         self.noise_scheduler = DDPMScheduler.from_pretrained(pretrained_model_name_or_path, subfolder="scheduler")
         self.unet = UNet2DConditionModel.from_pretrained(pretrained_model_name_or_path, subfolder="unet")
         self.unet.requires_grad_(False)
-        # self.unet = torch.compile(self.unet)
-
+        self.unet = torch.compile(self.unet, fullgraph=True)
 
         self.unet_lora_config = LoraConfig(
             r=32,
@@ -46,7 +45,7 @@ class GenModel(torch.nn.Module):
             vae=unwrap_model(self.vae),
             text_encoder=unwrap_model(self.text_encoder),
             tokenizer=self.tokenizer,
-            unet=unwrap_model(self.unet),
+            unet=self.unet,
             safety_checker=None,
             # revision=self.revision,
             # variant=self.variant,
@@ -63,7 +62,8 @@ class GenModel(torch.nn.Module):
     def generate(self, prompts, prompt_embeds=None):
         assert self.pipeline is not None
         # TODO: add height, width
-        return self.pipeline(prompt=prompts, width=512, height=512, prompt_embeds=prompt_embeds)[0]
+        uncond_embed = torch.zeros_like(prompt_embeds)
+        return self.pipeline(prompt=prompts, width=512, height=512, prompt_embeds=prompt_embeds, negative_prompt_embeds=uncond_embed)[0]
 
     def enbale_ema(self):
         # TODO: Implement
